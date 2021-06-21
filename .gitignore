@@ -1,0 +1,5 @@
+dist
+package-lock.json
+path-vizualizer.code-workspace
+tsconfig.json
+node_modules
