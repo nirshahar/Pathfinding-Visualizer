@@ -1,25 +1,24 @@
 import p5 from "p5";
+import $ from "jquery";
 import { Grid } from "./Grid";
 
-// Creating the sketch itself
 const sketch = (p: p5) => {
+	const WIDTH = $(window).width()!;
+	const HEIGHT = $(window).height()!;
+	const CELL_SIZE = 25;
 
-	let grid: Grid = new Grid(10, 10, 10);
-	// DEMO: Prepare an array of MyCircle instances
-	// The sketch setup method 
+	let grid: Grid = new Grid(Math.floor(WIDTH / CELL_SIZE), Math.floor(HEIGHT / CELL_SIZE), CELL_SIZE);
+
 	p.setup = () => {
-		// Creating and positioning the canvas
-		const canvas = p.createCanvas(200, 200);
+		const canvas = p.createCanvas(WIDTH, HEIGHT);
 		canvas.parent(document.body);
-
-		// Configuring the canvas
-		p.background("white");
 	};
 
 	// The sketch draw method
 	p.draw = () => {
-		grid.draw();
-		// DEMO: Let the circle instances draw themselve
+		p.background("green");
+		p.translate((WIDTH - grid.width * CELL_SIZE) / 2, (HEIGHT - grid.height * CELL_SIZE) / 2);
+		grid.draw(p);
 	};
 };
 

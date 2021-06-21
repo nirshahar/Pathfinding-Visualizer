@@ -1,3 +1,4 @@
+import p5 from "p5";
 import { Cell } from "./Cell";
 
 export class Grid {
@@ -12,18 +13,18 @@ export class Grid {
         this.cellSize = cellSize;
 
         this.cells = [];
-        for (let i = 0; i < height; i++) {
+        for (let i = 0; i < width; i++) {
             this.cells.push([]);
-            for (let j = 0; j < width; j++) {
-                this.cells[i].push(new Cell(cellSize))
+            for (let j = 0; j < height; j++) {
+                this.cells[i].push(new Cell(cellSize, i, j))
             }
         }
     }
 
-    draw () {
+    draw(p: p5) {
         this.cells.forEach(row => {
             row.forEach(cell => {
-                cell.draw();
+                cell.draw(p);
             });
         });
     }
