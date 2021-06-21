@@ -1,1 +1,7 @@
-console.log("Hello world!");
+function setup() {
+
+}
+
+function draw() {
+
+}
