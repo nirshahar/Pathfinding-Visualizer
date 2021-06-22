@@ -21,7 +21,11 @@ export class Grid {
         }
     }
 
-    draw(p: p5) {
+    update(p: p5): void {
+        this.draw(p);
+    }
+
+    draw(p: p5): void {
         this.cells.forEach(row => {
             row.forEach(cell => {
                 cell.draw(p);

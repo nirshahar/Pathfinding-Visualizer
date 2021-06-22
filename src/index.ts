@@ -14,11 +14,10 @@ const sketch = (p: p5) => {
 		canvas.parent(document.body);
 	};
 
-	// The sketch draw method
 	p.draw = () => {
 		p.background("green");
 		p.translate((WIDTH - grid.width * CELL_SIZE) / 2, (HEIGHT - grid.height * CELL_SIZE) / 2);
-		grid.draw(p);
+		grid.update(p);
 	};
 };
 
