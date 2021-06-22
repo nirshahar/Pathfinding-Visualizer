@@ -1,13 +1,13 @@
 import p5 from "p5";
 
+export type Graph = NamedGraph<number>;
 /**
  * A graph, containing nodes and edges between them.
  * @param T a type specifying the object "name" type of the graph nodes. I.e, every graph node will have some "name" with this type `T`.
  */
-class NamedGraph<T> {
-    mappingToNodes: Map<T, GraphNode> = new Map();
-    nodes: GraphNode[] = [];
-    nodeNames: T[] = [];
+export class NamedGraph<T> {
+    nameToNode: Map<T, GraphNode> = new Map<T, GraphNode>();
+    nodeToName: Map<GraphNode, T> = new Map<GraphNode, T>();
 
     /**
      * Creates a new empty graph
@@ -21,11 +21,35 @@ class NamedGraph<T> {
      * @param nodeName the name of the new node
      */
     addNode(x: number, y: number, nodeName: T): void {
+        if (this.nameToNode.has(nodeName)) {
+            throw "Node with name: " + nodeName + " already exists in graph.";
+        }
+
         const newNode = new GraphNode(x, y);
 
-        this.mappingToNodes.set(nodeName, newNode);
-        this.nodes.push(newNode);
-        this.nodeNames.push(nodeName);
+        this.nameToNode.set(nodeName, newNode);
+        this.nodeToName.set(newNode, nodeName);
+    }
+
+    /**
+     * Tries to remove the node with the specified name from the graph.
+     * @param nodeName The name of the node to remove
+     * @returns boolean `true` if succeeds, `false` otherwise.
+     */
+    removeNode(nodeName: T): boolean {
+        if (this.nameToNode.has(nodeName)) {
+            let node: GraphNode = this.nameToNode.get(nodeName)!;
+
+            node.edges.forEach(edge => {
+                edge.disconnect();
+            });
+
+            let ret: boolean = this.nameToNode.delete(nodeName);
+            ret &&= this.nodeToName.delete(node);
+
+            return ret;
+        }
+        return false;
     }
 
     /**
@@ -39,14 +63,14 @@ class NamedGraph<T> {
         let firstNode: GraphNode;
         let secondNode: GraphNode;
 
-        if (this.mappingToNodes.has(firstNodeName)) {
-            firstNode = this.mappingToNodes.get(firstNodeName)!;
+        if (this.nameToNode.has(firstNodeName)) {
+            firstNode = this.nameToNode.get(firstNodeName)!;
         } else {
             throw "Graph node with name " + firstNodeName + " does not exist in the graph.";
         }
 
-        if (this.mappingToNodes.has(secondNodeName)) {
-            secondNode = this.mappingToNodes.get(secondNodeName)!;
+        if (this.nameToNode.has(secondNodeName)) {
+            secondNode = this.nameToNode.get(secondNodeName)!;
         } else {
             throw "Graph node with name " + secondNodeName + " does not exist in the graph.";
         }
@@ -59,20 +83,18 @@ class NamedGraph<T> {
      * @param p canvas to draw on
      */
     draw(p: p5) {
-        this.nodes.forEach(node => {
-            node.resetEdgeDrawing();
-        });
+        let node: GraphNode;
 
-        this.nodes.forEach(node => {
+        for (node of this.nameToNode.values()) {
             node.draw(p);
-        });
+        }
     }
 }
 
 /**
  * A node within a graph.
  */
-class GraphNode {
+export class GraphNode {
     static readonly NODE_SIZE: number = 10;
 
     x: number;
@@ -120,7 +142,7 @@ class GraphNode {
 /**
  * An edge connecting two nodes.
  */
-class GraphEdge {
+export class GraphEdge {
     private otherEdge: GraphEdge = this;
 
     readonly sourceNode: GraphNode;
