@@ -12,12 +12,15 @@ const sketch = (p: p5) => {
 	p.setup = () => {
 		const canvas = p.createCanvas(WIDTH, HEIGHT);
 		canvas.parent(document.body);
+
+		p.rectMode(p.CENTER);
+		p.ellipseMode(p.CENTER);
 	};
 
 	p.draw = () => {
 		p.background("green");
 		p.translate((WIDTH - grid.width * CELL_SIZE) / 2, (HEIGHT - grid.height * CELL_SIZE) / 2);
-		grid.update(p);
+		grid.draw(p);
 	};
 };
 

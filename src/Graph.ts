@@ -1,18 +1,35 @@
 import p5 from "p5";
 
-export type Graph = NamedGraph<number>;
+
 /**
  * A graph, containing nodes and edges between them.
  * @param T a type specifying the object "name" type of the graph nodes. I.e, every graph node will have some "name" with this type `T`.
  */
 export class NamedGraph<T> {
-    nameToNode: Map<T, GraphNode> = new Map<T, GraphNode>();
+    
+    nameToNode: Map<T | string, GraphNode> = new Map<T | string, GraphNode>();
     nodeToName: Map<GraphNode, T> = new Map<GraphNode, T>();
 
+    private readonly useStringNames: boolean;
     /**
      * Creates a new empty graph
+     * @param useStringNames if set to "true", the graph will use JSON.stringify() to transform the node's names into strings. Otherwise, they will be used as objects
      */
-    constructor() { }
+    constructor(useStringNames: boolean = false) {
+        this.useStringNames = useStringNames;
+    }
+
+    /**
+     * Transforms the `name` either into a string or keeps it as is, depending on the variable `useStringNames`
+     * @param name the name to transform
+     * @returns `JSON.stringify(name)` if `useStringNames` is true, and `name` otherwise
+     */
+    private transformName(name: T): T | string {
+        if (this.useStringNames) { 
+            return JSON.stringify(name);
+        }
+        return name;
+    }
 
     /**
      * Adds a new node to the graph, with the specified name and coordiantes
@@ -20,14 +37,19 @@ export class NamedGraph<T> {
      * @param y y-coordinate of the new node
      * @param nodeName the name of the new node
      */
-    addNode(x: number, y: number, nodeName: T): void {
-        if (this.nameToNode.has(nodeName)) {
-            throw "Node with name: " + nodeName + " already exists in graph.";
+    addNode(x: number, y: number, nodeName: T, node?: GraphNode): void {
+        let transformedNodeName = this.transformName(nodeName);
+
+        if (this.nameToNode.has(transformedNodeName)) {
+            throw new Error("Node with name: " + nodeName + " already exists in graph.");
         }
-
-        const newNode = new GraphNode(x, y);
-
-        this.nameToNode.set(nodeName, newNode);
+        let newNode: GraphNode;
+        if (node === undefined) {
+            newNode = new GraphNode(x, y);
+        } else {
+            newNode = node;
+        }
+        this.nameToNode.set(transformedNodeName, newNode);
         this.nodeToName.set(newNode, nodeName);
     }
 
@@ -37,14 +59,16 @@ export class NamedGraph<T> {
      * @returns boolean `true` if succeeds, `false` otherwise.
      */
     removeNode(nodeName: T): boolean {
-        if (this.nameToNode.has(nodeName)) {
-            let node: GraphNode = this.nameToNode.get(nodeName)!;
+        let transformedNodeName = this.transformName(nodeName);
+
+        if (this.nameToNode.has(transformedNodeName)) {
+            let node: GraphNode = this.nameToNode.get(transformedNodeName)!;
 
             node.edges.forEach(edge => {
                 edge.disconnect();
             });
 
-            let ret: boolean = this.nameToNode.delete(nodeName);
+            let ret: boolean = this.nameToNode.delete(transformedNodeName);
             ret &&= this.nodeToName.delete(node);
 
             return ret;
@@ -57,25 +81,29 @@ export class NamedGraph<T> {
      * @param firstNodeName the name of the first node
      * @param secondNodeName the name of the second node
      * @param weight the weight of the created edge
+     * @param drawEdge set to `false` if you don't want the edge to be drawn
      * @throws when there aren't nodes with the specified names in the graph.
      */
-    addEdge(firstNodeName: T, secondNodeName: T, weight: number = 1) {
+    addEdge(firstNodeName: T, secondNodeName: T, weight: number = 1, drawEdge: boolean = true) {
+        let firstTransformedNodeName = this.transformName(firstNodeName);
+        let secondTransformedNodeName = this.transformName(secondNodeName);
+
         let firstNode: GraphNode;
         let secondNode: GraphNode;
 
-        if (this.nameToNode.has(firstNodeName)) {
-            firstNode = this.nameToNode.get(firstNodeName)!;
+        if (this.nameToNode.has(firstTransformedNodeName)) {
+            firstNode = this.nameToNode.get(firstTransformedNodeName)!;
         } else {
-            throw "Graph node with name " + firstNodeName + " does not exist in the graph.";
+            throw new Error("Graph node with name " + firstTransformedNodeName + " does not exist in the graph.");
         }
 
-        if (this.nameToNode.has(secondNodeName)) {
-            secondNode = this.nameToNode.get(secondNodeName)!;
+        if (this.nameToNode.has(secondTransformedNodeName)) {
+            secondNode = this.nameToNode.get(secondTransformedNodeName)!;
         } else {
-            throw "Graph node with name " + secondNodeName + " does not exist in the graph.";
+            throw new Error("Graph node with name " + secondTransformedNodeName + " does not exist in the graph.");
         }
 
-        GraphEdge.connect(firstNode, secondNode, weight);
+        GraphEdge.connect(firstNode, secondNode, weight, drawEdge);
     }
 
     /**
@@ -85,8 +113,16 @@ export class NamedGraph<T> {
     draw(p: p5) {
         let node: GraphNode;
 
-        for (node of this.nameToNode.values()) {
+        for (node of this.nodeToName.keys()) {
+            node.resetEdgeDrawing();
+        }
+
+        for (node of this.nodeToName.keys()) {
             node.draw(p);
+        }
+
+        for (node of this.nodeToName.keys()) {
+            node.drawEdges(p);
         }
     }
 }
@@ -99,12 +135,14 @@ export class GraphNode {
 
     x: number;
     y: number;
+    nodeSize: number;
 
     edges: GraphEdge[];
 
-    constructor(x: number, y: number, neighbors: GraphNode[] = []) {
+    constructor(x: number, y: number, nodeSize: number = GraphNode.NODE_SIZE, neighbors: GraphNode[] = []) {
         this.x = x;
         this.y = y;
+        this.nodeSize = nodeSize;
 
         this.edges = [];
         neighbors.forEach(neighbor => {
@@ -122,20 +160,19 @@ export class GraphNode {
     }
 
     /**
-     * Draws the node and all of its edges.
+     * Draws the node's edges.
      */
-    draw(p: p5): void {
-        this.drawNode(p);
+    drawEdges(p: p5): void {
         this.edges.forEach(edge => {
             edge.draw(p);
         });
     }
 
     /**
-     * Defines how the node should be rendered. It should draw only the node itself
+     * Defines how the node should be rendered.
      */
-    drawNode(p: p5): void {
-        p.circle(this.x, this.y, GraphNode.NODE_SIZE);
+    draw(p: p5): void {
+        p.circle(this.x, this.y, this.nodeSize);
     }
 }
 
@@ -147,8 +184,10 @@ export class GraphEdge {
 
     readonly sourceNode: GraphNode;
     readonly targetNode: GraphNode;
+    private readonly drawEdge: boolean;
 
     private _weight: number;
+
 
     get weight(): number {
         return this._weight;
@@ -173,11 +212,13 @@ export class GraphEdge {
      * @param sourceNode first node in the edge
      * @param targetNode second node in the edge
      * @param weight the weight ofthe edge. Defaults to 1.
+     * @param drawEdge set to `false` if you don't want the edge to be drawn
      */
-    private constructor(sourceNode: GraphNode, targetNode: GraphNode, weight: number = 1) {
+    private constructor(sourceNode: GraphNode, targetNode: GraphNode, weight: number = 1, drawEdge: boolean = true) {
         this.sourceNode = sourceNode;
         this.targetNode = targetNode;
         this._weight = weight;
+        this.drawEdge = drawEdge;
     }
 
     /**
@@ -199,7 +240,7 @@ export class GraphEdge {
      * Draws the edge.
      */
     draw(p: p5): void {
-        if (!this.wasDrawn) {
+        if (this.drawEdge && !this.wasDrawn) {
             this.wasDrawn = true;
 
             p.line(this.sourceNode.x, this.sourceNode.y, this.targetNode.x, this.targetNode.y);
@@ -211,10 +252,11 @@ export class GraphEdge {
      * @param firstNode The first node in the edge
      * @param secondNode The second node in the edge
      * @param weight The weight of the edge. Unless specified, weight = 1.
+     * @param drawEdge set to `false` if you don't want the edge to be drawn
      */
-    static connect(firstNode: GraphNode, secondNode: GraphNode, weight: number = 1): void {
-        let firstEdge = new GraphEdge(firstNode, secondNode, weight);
-        let secondEdge = new GraphEdge(secondNode, firstNode, weight);
+    static connect(firstNode: GraphNode, secondNode: GraphNode, weight: number = 1, drawEdge: boolean = true): void {
+        let firstEdge = new GraphEdge(firstNode, secondNode, weight, drawEdge);
+        let secondEdge = new GraphEdge(secondNode, firstNode, weight, drawEdge);
 
         firstEdge.otherEdge = secondEdge;
         secondEdge.otherEdge = firstEdge;
